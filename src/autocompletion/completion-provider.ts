@@ -113,6 +113,7 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
     if (possibleSources.length > 0) {
       return this.getModuleAutoCompletion(possibleSources, vscode.CompletionItemKind.Class);
     }
+
     if (ast) {
       let offset1 = document.
       offsetAt(position);
@@ -125,7 +126,6 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
       let token = getTokenAtPosition(ast, pos);
       if (token) {
 
-
         // Local completion and function completion
         let interpolationCompletions = this.interpolationCompletions(document, position);
         if (interpolationCompletions.length !== 0)
@@ -134,8 +134,6 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
     }
 
     // TODO: refactor to use ast here aswell
-    // let lineText = document.lineAt(position.line).text;
-    // let lineTillCurrentPosition = lineText.substr(0, position.character);
 
     // high-level types ex: variable, resource, module, output etc..
     if (position.character === 0 || this.isTerraformTypes(lineText)) {
@@ -180,8 +178,14 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
       let parentResource: string = "";
       let parentType: string = "";
       let nestedCounts: number = 0;
+      let sourceResource: string = "";
       while (prev >= 0) {
         let line: string = document.lineAt(prev).text;
+        // if it is module, we have to store source parameters as parentResource
+        let parameterParts: string[] = line.split(" ");
+        if (parameterParts[2] === "source") {
+          sourceResource = parameterParts[parameterParts.length - 1].replace(/"|=/g, "");
+        }
         // nested closing block
         if (line.trim() === "}") {
           nestedCounts++;
@@ -226,8 +230,12 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
         }
         return this.getItemsForArgs(fieldArgs, parentResource);
       } else if (parentType.length > 0 && nestedTypes.length === 0) {
-        let fieldArgs: IFieldDef[] = terraformConfigAutoComplete[parentType];
-        return this.getItemsForArgs(fieldArgs, parentType);
+        let temp: any = { items: moduleSources[sourceResource].args };
+        let fieldArgs: IModuleArgsDef[] = _.cloneDeep(temp).items;
+        if (parentType === "module") {
+          fieldArgs.push(...terraformConfigAutoComplete.module);
+        }
+        return this.getModuleItemsForArgs(fieldArgs, sourceResource);
       }
     }
     return [];
@@ -271,6 +279,8 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
       let order: string = count.toString()
       completionList.sortText = "0".repeat(5 - order.length) + order;
       count = count + 1
+      let snippet = s + '" "${1:name}'
+      completionList.insertText = new vscode.SnippetString(snippet)
       return completionList;
     });
   }
@@ -321,6 +331,53 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
     });
   }
 
+  private getModuleItemsForArgs(args: IModuleArgsDef[], type: string): any {
+    return _.map(args, o => {
+      let c = new vscode.CompletionItem(`${o.name} (${type})`, vscode.CompletionItemKind.Property);
+      c.detail = o.description;
+      let defaultValue: string = o.default.replace(/\n|\s/g, "");
+      let snippet = o.name + ' = ' + defaultValue;
+      if (defaultValue.length >= 2 && defaultValue[0] === '"' &&  defaultValue[defaultValue.length - 1] === '"') {
+        defaultValue = defaultValue.replace(/\"/g, "");
+        snippet = o.name + ' = "${1:' + defaultValue + '}"';
+      } else if (defaultValue.length >= 2 && defaultValue[0] === '[' &&  defaultValue[defaultValue.length - 1] === ']') {
+        defaultValue = defaultValue.replace(/\[\s*/g, "").replace(/\s*\]/g, "");
+        snippet = o.name + ' = [${1:' + defaultValue + '}]';
+      } else if (defaultValue.length >= 2 && defaultValue[0] === '{' &&  defaultValue[defaultValue.length - 1] === '}') {
+        defaultValue = defaultValue.replace(/\{\s*/g, "").replace(/\s*\}/g, "");
+        let positions: number[];
+        let space: string = "";
+        let pos = defaultValue.indexOf(":");
+        let startPos = 0;
+        let endPos = defaultValue.length - 1;
+        let order: number = 1;
+        snippet = o.name + ' = {\n';
+        while (pos > -1) {
+          let item: string = defaultValue.substr(startPos, pos - startPos);
+          let value: string = defaultValue.substr(pos + 1, endPos - pos - 1);
+          if (order === 1) {
+            space = "  ";
+          }
+          snippet += space + '${' + order.toString() + ':' + item.replace(/\"|\n/g, "") + '}' + ' = ';
+          order += 1;
+          if (defaultValue[pos + 1] === "[") {
+            value = defaultValue.substr(pos + 1).match( /\[(.*?)\]/g).map(str => str.substr(1, str.length - 2))[0];
+            snippet += '[${' + order.toString() + ':' + value + '}]' + '\n';
+            order += 1;
+          } else if (defaultValue[pos + 1] === '\"') {
+            value = defaultValue.match( /\"(.*?)\"/g).map(str => str.substr(1, str.length - 2))[0];
+            snippet += '"${' + order.toString() + ':' + value + '}"' + '\n';
+            order += 1;
+          }
+          startPos = pos + value.length + 2 + 2;
+          pos = defaultValue.indexOf(":", startPos);
+        }
+        snippet += '}\n';
+      }
+      c.insertText = new vscode.SnippetString(snippet);
+      return c;
+    });
+  }
   private typedMatched(line: string, exp: RegExp): boolean {
     return exp.test(line);
   }
