@@ -1,0 +1,1 @@
+{"data": {"external": {"name": "external", "url": "https://www.terraform.io/docs/providers/external/data_source.html", "groupName": "Data Source", "type": "data", "args": [{"name": "program", "description": "", "args": []}, {"name": "query", "description": "", "args": []}], "attrs": [{"name": "result", "description": "", "args": []}]}}}

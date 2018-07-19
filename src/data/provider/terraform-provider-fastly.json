@@ -1,0 +1,1 @@
+{"data": {"fastly_ip_ranges": {"name": "fastly_ip_ranges", "url": "https://www.terraform.io/docs/providers/fastly/d/ip_ranges.html", "groupName": "Data Sources", "args": [], "attrs": [{"name": "cidr_blocks", "description": "", "args": []}], "type": "data"}}, "resource": {}}

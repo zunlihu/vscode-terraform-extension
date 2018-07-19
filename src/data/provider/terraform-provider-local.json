@@ -1,0 +1,1 @@
+{"data": {"file": {"name": "file", "url": "https://www.terraform.io/docs/providers/local/d/file.html", "groupName": "Data Sources", "args": [{"name": "filename", "description": "", "args": []}], "attrs": [], "type": "data"}}, "resource": {}}

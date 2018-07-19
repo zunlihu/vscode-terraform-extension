@@ -1,0 +1,1 @@
+{"data": {"http": {"name": "http", "url": "https://www.terraform.io/docs/providers/http/data_source.html", "groupName": "Data Source", "type": "data", "args": [{"name": "url", "description": "", "args": []}, {"name": "request_headers", "description": "", "args": []}], "attrs": [{"name": "body", "description": "", "args": []}]}}}
